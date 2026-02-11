@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserMockup } from './BrowserMockup';
-import { ScreenshotPlaceholder } from './ScreenshotPlaceholder';
 
 export const HeroSection: React.FC = () => {
     return (
@@ -40,7 +39,11 @@ export const HeroSection: React.FC = () => {
                 <div className="mt-16 relative">
                     <div className="relative mx-auto max-w-5xl">
                         <BrowserMockup url="gridtrack.co.uk/timeline">
-                            <ScreenshotPlaceholder title="Timeline View" />
+                            <img
+                                src="/assets/screenshots/timeline.png"
+                                alt="Timeline View"
+                                className="w-full h-auto"
+                            />
                         </BrowserMockup>
                     </div>
                     {/* Glow effect under the image */}
