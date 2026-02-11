@@ -21,8 +21,9 @@ export const PricingSection: React.FC = () => {
                 </p>
 
                 {/* Pricing Card */}
-                <div className="max-w-md mx-auto bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden hover:shadow-2xl transition-shadow">
-                    <div className="p-8">
+                <div className="relative max-w-md mx-auto">
+                    {/* Card with gradient border effect */}
+                    <div className="relative bg-white rounded-3xl shadow-xl shadow-blue-500/10 overflow-hidden p-8 ring-2 ring-blue-500/20 hover:ring-blue-500/40 hover:shadow-2xl hover:shadow-blue-500/20 transition-all duration-300">
                         <h3 className="text-2xl font-bold text-gray-900 mb-2">
                             Professional
                         </h3>
@@ -46,7 +47,7 @@ export const PricingSection: React.FC = () => {
                             ))}
                         </ul>
 
-                        <button className="w-full py-4 bg-primary hover:bg-primary-hover text-white font-semibold rounded-xl transition-colors">
+                        <button className="w-full py-4 bg-primary hover:bg-primary-hover text-white font-semibold rounded-xl transition-colors shadow-lg hover:shadow-xl">
                             Start 14-Day Free Trial
                         </button>
                         <p className="text-center text-sm text-gray-500 mt-4">

@@ -1,5 +1,4 @@
 import React from 'react';
-import { BrowserMockup } from './BrowserMockup';
 
 export const FeaturesSection: React.FC = () => {
     const features = [
@@ -53,14 +52,32 @@ export const FeaturesSection: React.FC = () => {
                         key={index}
                         className={`flex flex-col ${feature.imagePosition === 'right' ? 'lg:flex-row-reverse' : 'lg:flex-row'} items-center gap-12 ${index < features.length - 1 ? 'mb-20' : ''}`}
                     >
-                        <div className="flex-1">
-                            <BrowserMockup url={feature.url}>
+                        <div className="flex-1 relative">
+                            {/* Background glow */}
+                            <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-2xl blur-xl" />
+
+                            {/* Browser mockup with enhanced styling */}
+                            <div className="relative bg-gray-900 rounded-xl shadow-xl shadow-gray-200/50 overflow-hidden ring-1 ring-gray-100/50">
+                                {/* Browser dots */}
+                                <div className="flex items-center gap-2 px-4 py-3 bg-gray-800 border-b border-gray-700">
+                                    <div className="flex gap-1.5">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                                        <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                                        <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                                    </div>
+                                    <div className="flex-1 mx-4">
+                                        <div className="bg-gray-700 rounded px-3 py-1 text-xs text-gray-400 max-w-xs">
+                                            {feature.url}
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* Screenshot */}
                                 <img
                                     src={feature.screenshot}
                                     alt={feature.title}
                                     className="w-full h-auto"
                                 />
-                            </BrowserMockup>
+                            </div>
                         </div>
                         <div className={`flex-1 ${feature.imagePosition === 'right' ? 'lg:pr-8' : 'lg:pl-8'}`}>
                             <h3 className="text-2xl font-bold text-gray-900 mb-4">
