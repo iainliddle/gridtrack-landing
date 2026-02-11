@@ -29,7 +29,7 @@ export const HeroSection: React.FC = () => {
                         href="https://grid-track-pro.vercel.app/register"
                         className="px-8 py-4 bg-primary hover:bg-primary-hover text-white font-semibold rounded-xl shadow-blue-lg hover:shadow-blue-xl transition-all transform hover:scale-105"
                     >
-                        Start 14-Day Free Trial
+                        Get Free Access
                     </a>
                     <a
                         href="mailto:iain@lumarr.co.uk?subject=GridTrack Pro Demo Request"

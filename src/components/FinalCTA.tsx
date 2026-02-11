@@ -23,7 +23,7 @@ export const FinalCTA: React.FC = () => {
                     href="https://grid-track-pro.vercel.app/register"
                     className="inline-block px-8 py-4 bg-white text-blue-600 font-semibold rounded-xl shadow-lg shadow-blue-900/30 hover:shadow-xl hover:shadow-blue-900/40 hover:-translate-y-0.5 transition-all duration-300"
                 >
-                    Start Your Free Trial
+                    Get Free Access
                 </a>
             </div>
         </section>

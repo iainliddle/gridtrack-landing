@@ -36,7 +36,7 @@ export const Navigation: React.FC = () => {
                         href="https://grid-track-pro.vercel.app/register"
                         className="px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-md transition-colors shadow-sm hover:shadow-md"
                     >
-                        Start free trial
+                        Join the Beta
                     </a>
                 </div>
             </div>
