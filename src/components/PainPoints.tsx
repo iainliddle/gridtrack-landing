@@ -4,19 +4,19 @@ export const PainPoints: React.FC = () => {
     const painPoints = [
         {
             emoji: '📊',
-            bgColor: 'bg-red-100',
+            gradient: 'from-red-500 to-pink-600',
             title: 'Drowning in Spreadsheets',
             description: 'Tracking projects across multiple Excel files, losing version control, no single source of truth.'
         },
         {
             emoji: '⏰',
-            bgColor: 'bg-amber-100',
+            gradient: 'from-amber-500 to-orange-600',
             title: 'Missing Critical Deadlines',
             description: 'POC expiry dates, wayleave deadlines, DNO milestones slipping through the cracks.'
         },
         {
             emoji: '🔍',
-            bgColor: 'bg-blue-100',
+            gradient: 'from-blue-500 to-indigo-600',
             title: 'Zero Visibility',
             description: 'No idea which projects are on track, which are at risk, or where the bottlenecks are.'
         }
@@ -33,9 +33,10 @@ export const PainPoints: React.FC = () => {
                     {painPoints.map((point, index) => (
                         <div
                             key={index}
-                            className="p-8 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all group"
+                            className="p-8 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-200 hover:-translate-y-1 transition-all duration-300 ease-out group"
                         >
-                            <div className={`w-12 h-12 ${point.bgColor} rounded-xl flex items-center justify-center text-2xl mb-6`}>
+                            {/* Icon with gradient background */}
+                            <div className={`w-14 h-14 bg-gradient-to-br ${point.gradient} rounded-xl flex items-center justify-center text-white text-2xl mb-6 group-hover:scale-110 transition-transform duration-300`}>
                                 {point.emoji}
                             </div>
                             <h3 className="text-xl font-semibold text-gray-900 mb-3">
