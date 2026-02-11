@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserMockup } from './BrowserMockup';
-import { ScreenshotPlaceholder } from './ScreenshotPlaceholder';
 
 export const FeaturesSection: React.FC = () => {
     const features = [
@@ -56,8 +55,10 @@ export const FeaturesSection: React.FC = () => {
                     >
                         <div className="flex-1">
                             <BrowserMockup url={feature.url}>
-                                <ScreenshotPlaceholder
-                                    title={feature.title.split(' ').slice(0, 2).join(' ')}
+                                <img
+                                    src={feature.screenshot}
+                                    alt={feature.title}
+                                    className="w-full h-auto"
                                 />
                             </BrowserMockup>
                         </div>
