@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" fill="none">
+  <defs>
+    <filter id="blur">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="40" />
+    </filter>
+  </defs>
+  
+  <!-- Soft cloud shapes -->
+  <ellipse cx="300" cy="200" rx="250" ry="120" fill="#DBEAFE" opacity="0.4" filter="url(#blur)" />
+  <ellipse cx="700" cy="150" rx="300" ry="100" fill="#BFDBFE" opacity="0.3" filter="url(#blur)" />
+  <ellipse cx="1200" cy="250" rx="280" ry="130" fill="#DBEAFE" opacity="0.4" filter="url(#blur)" />
+  <ellipse cx="1600" cy="180" rx="320" ry="110" fill="#BFDBFE" opacity="0.3" filter="url(#blur)" />
+  
+  <!-- Additional soft clouds in background -->
+  <ellipse cx="450" cy="400" rx="200" ry="90" fill="#E0F2FE" opacity="0.3" filter="url(#blur)" />
+  <ellipse cx="950" cy="350" rx="240" ry="100" fill="#DBEAFE" opacity="0.25" filter="url(#blur)" />
+  <ellipse cx="1450" cy="420" rx="220" ry="95" fill="#E0F2FE" opacity="0.3" filter="url(#blur)" />
+</svg>
