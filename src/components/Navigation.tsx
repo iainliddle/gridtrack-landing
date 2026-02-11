@@ -29,11 +29,11 @@ export const Navigation: React.FC = () => {
 
                 {/* CTA Buttons */}
                 <div className="flex items-center gap-4">
-                    <a href="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+                    <a href="https://grid-track-pro.vercel.app/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
                         Log in
                     </a>
                     <a
-                        href="/signup"
+                        href="https://grid-track-pro.vercel.app/register"
                         className="px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-md transition-colors shadow-sm hover:shadow-md"
                     >
                         Start free trial

@@ -11,7 +11,7 @@ export const FinalCTA: React.FC = () => {
                     Join the ICPs and CPOs already delivering on time with GridTrack.
                 </p>
                 <a
-                    href="/signup"
+                    href="https://grid-track-pro.vercel.app/register"
                     className="inline-block px-8 py-4 bg-white hover:bg-gray-100 text-primary font-semibold rounded-xl shadow-lg transition-colors"
                 >
                     Start Your Free Trial

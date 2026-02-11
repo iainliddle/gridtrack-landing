@@ -23,13 +23,13 @@ export const HeroSection: React.FC = () => {
                 {/* CTA Buttons */}
                 <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
                     <a
-                        href="/signup"
+                        href="https://grid-track-pro.vercel.app/register"
                         className="px-8 py-4 bg-primary hover:bg-primary-hover text-white font-semibold rounded-xl shadow-blue-lg hover:shadow-blue-xl transition-all transform hover:scale-105"
                     >
                         Start 14-Day Free Trial
                     </a>
                     <a
-                        href="#demo"
+                        href="mailto:iain@lumarr.co.uk?subject=GridTrack Pro Demo Request"
                         className="px-8 py-4 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-xl border border-gray-200 transition-colors"
                     >
                         Book a Demo
