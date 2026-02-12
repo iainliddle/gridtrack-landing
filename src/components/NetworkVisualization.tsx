@@ -1,259 +1,231 @@
 'use client';
-import React, { useEffect, useRef } from 'react';
+import React, { useRef, useMemo, useState } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { QuadraticBezierLine, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
+
+// --- Types ---
 
 interface NetworkVisualizationProps {
     interactive?: boolean;
     mousePosition?: { x: number; y: number } | null;
 }
 
-export const NetworkVisualization: React.FC<NetworkVisualizationProps> = ({
-    interactive = false,
-    mousePosition = null
-}) => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const sceneRef = useRef<{
-        scene: THREE.Scene;
-        camera: THREE.PerspectiveCamera;
-        renderer: THREE.WebGLRenderer;
-        pylons: THREE.Group[];
-        wires: THREE.Line[];
-        pulses: { mesh: THREE.Mesh; curve: THREE.CatmullRomCurve3; progress: number; speed: number }[];
-    } | null>(null);
-    const animationFrameRef = useRef<number>(null);
+// --- Components ---
 
-    useEffect(() => {
-        if (!containerRef.current) return;
+const Pylon = ({ position, scale = 1, opacity = 0.5 }: { position: [number, number, number], scale?: number, opacity?: number }) => {
+    const material = useMemo(() => new THREE.MeshPhongMaterial({
+        color: 0x1e293b,
+        transparent: true,
+        opacity: opacity,
+        shininess: 30
+    }), [opacity]);
 
-        // --- 1. SETUP SCENE ---
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0a0f1c);
-        scene.fog = new THREE.FogExp2(0x0a0f1c, 0.001);
+    const h = 250 * scale;
+    const w = 80 * scale;
 
-        const camera = new THREE.PerspectiveCamera(
-            60,
-            containerRef.current.offsetWidth / containerRef.current.offsetHeight,
-            0.1,
-            5000
-        );
-        camera.position.set(0, 400, 1000);
-        camera.lookAt(0, 100, 0);
+    return (
+        <group position={position}>
+            {/* Legs */}
+            <mesh position={[-w * 0.15, h / 2, -w * 0.15]} rotation={[0.1, 0, 0.1]}>
+                <cylinderGeometry args={[1, 3, h, 4]} />
+                <primitive object={material} attach="material" />
+            </mesh>
+            <mesh position={[w * 0.15, h / 2, -w * 0.15]} rotation={[0.1, 0, -0.1]}>
+                <cylinderGeometry args={[1, 3, h, 4]} />
+                <primitive object={material} attach="material" />
+            </mesh>
+            <mesh position={[w * 0.15, h / 2, w * 0.15]} rotation={[-0.1, 0, -0.1]}>
+                <cylinderGeometry args={[1, 3, h, 4]} />
+                <primitive object={material} attach="material" />
+            </mesh>
+            <mesh position={[-w * 0.15, h / 2, w * 0.15]} rotation={[-0.1, 0, 0.1]}>
+                <cylinderGeometry args={[1, 3, h, 4]} />
+                <primitive object={material} attach="material" />
+            </mesh>
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(containerRef.current.offsetWidth, containerRef.current.offsetHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        containerRef.current.appendChild(renderer.domElement);
+            {/* Arms & Insulators */}
+            {[0.65, 0.8, 0.95].map((yStep, i) => {
+                const y = h * yStep;
+                const armW = w * (1.8 - i * 0.2);
+                return (
+                    <group key={i} position={[0, y, 0]}>
+                        <mesh>
+                            <boxGeometry args={[armW, 4, 4]} />
+                            <primitive object={material} attach="material" />
+                        </mesh>
+                        {/* Insulators */}
+                        {[-1, 1].map(side => (
+                            <mesh key={side} position={[(armW / 2) * side, -6, 0]}>
+                                <cylinderGeometry args={[2, 2, 12, 8]} />
+                                <meshPhongMaterial color="#475569" />
+                            </mesh>
+                        ))}
+                    </group>
+                );
+            })}
+        </group>
+    );
+};
 
-        // --- 2. LIGHTING ---
-        const ambientLight = new THREE.AmbientLight(0x404040, 2);
-        scene.add(ambientLight);
+const TransmissionLine = ({ start, end }: { start: THREE.Vector3, end: THREE.Vector3 }) => {
+    const mid = useMemo(() => {
+        const m = new THREE.Vector3().lerpVectors(start, end, 0.5);
+        m.y -= 40; // Sag
+        return m;
+    }, [start, end]);
 
-        const directionalLight = new THREE.DirectionalLight(0x3b82f6, 3);
-        directionalLight.position.set(200, 800, 200);
-        scene.add(directionalLight);
+    return (
+        <QuadraticBezierLine
+            start={start}
+            end={end}
+            mid={mid}
+            color="#3b82f6"
+            lineWidth={0.5}
+            transparent
+            opacity={0.3}
+        />
+    );
+};
 
-        // --- 3. PYLON MODEL HELPER ---
-        const createPylon = () => {
-            const group = new THREE.Group();
-            const material = new THREE.MeshPhongMaterial({ color: 0x1e293b, shininess: 30 });
+const Pulse = ({ curve, speed, onComplete }: { curve: THREE.QuadraticBezierCurve3, speed: number, onComplete: () => void }) => {
+    const meshRef = useRef<THREE.Mesh>(null);
+    const progress = useRef(0);
 
-            const h = 250;
-            const w = 80;
+    useFrame(() => {
+        progress.current += speed;
+        if (progress.current >= 1) {
+            onComplete();
+        } else {
+            if (meshRef.current) {
+                const pos = curve.getPoint(progress.current);
+                meshRef.current.position.copy(pos);
+            }
+        }
+    });
 
-            // Legs
-            const legGeom = new THREE.CylinderGeometry(1, 6, h, 4);
-            const legs = [
-                { x: -w / 2, z: -w / 2 },
-                { x: w / 2, z: -w / 2 },
-                { x: w / 2, z: w / 2 },
-                { x: -w / 2, z: w / 2 }
-            ];
+    return (
+        <mesh ref={meshRef}>
+            <sphereGeometry args={[4, 8, 8]} />
+            <meshStandardMaterial
+                color="#06b6d4"
+                emissive="#06b6d4"
+                emissiveIntensity={4 + Math.random() * 2}
+            />
+        </mesh>
+    );
+};
 
-            legs.forEach(pos => {
-                const leg = new THREE.Mesh(legGeom, material);
-                leg.position.set(pos.x * 0.4, h / 2, pos.z * 0.4);
-                leg.rotation.z = pos.x > 0 ? 0.12 : -0.12;
-                leg.rotation.x = pos.z > 0 ? -0.12 : 0.12;
-                group.add(leg);
-            });
+const InfrastructureScene = ({ mousePosition, interactive }: { mousePosition?: { x: number, y: number } | null, interactive: boolean }) => {
+    const [pulses, setPulses] = useState<{ id: number, curve: THREE.QuadraticBezierCurve3, speed: number }[]>([]);
+    const nextId = useRef(0);
+    const cameraRef = useRef<THREE.PerspectiveCamera>(null);
 
-            // Arms
-            const armY = [h * 0.65, h * 0.8, h * 0.95];
-            const armW = [w * 1.8, w * 1.6, w * 1.4];
-
-            armY.forEach((y, i) => {
-                const currentArmW = armW[i];
-                const arm = new THREE.Mesh(new THREE.BoxGeometry(currentArmW, 4, 4), material);
-                arm.position.y = y;
-                group.add(arm);
-
-                // Insulators
-                const insGeom = new THREE.CylinderGeometry(2, 2, 12, 8);
-                const insMat = new THREE.MeshPhongMaterial({ color: 0x475569 });
-
-                [-1, 1].forEach(side => {
-                    const ins = new THREE.Mesh(insGeom, insMat);
-                    ins.position.set((currentArmW / 2) * side, y - 6, 0);
-                    group.add(ins);
-                });
-            });
-
-            return group;
-        };
-
-        // --- 4. POPULATE GRID ---
-        const pylons: THREE.Group[] = [];
-        const wires: THREE.Line[] = [];
-        const pulses: { mesh: THREE.Mesh; curve: THREE.CatmullRomCurve3; progress: number; speed: number }[];
-
-        const rows = 4;
+    // Setup Grid
+    const { pylonData, lineData } = useMemo(() => {
+        const rows = 3;
         const cols = 5;
         const spacingX = 500;
         const spacingZ = 800;
+        const pylons: any[] = [];
+        const lines: any[] = [];
 
         for (let r = 0; r < rows; r++) {
+            const z = -r * spacingZ;
+            const opacity = 0.2 + (1 - r / rows) * 0.5;
             for (let c = 0; c < cols; c++) {
-                const pylon = createPylon();
                 const x = (c - (cols - 1) / 2) * spacingX + (Math.random() - 0.5) * 150;
-                const z = -r * spacingZ + (Math.random() - 0.5) * 150;
-                pylon.position.set(x, 0, z);
-                scene.add(pylon);
-                pylons.push(pylon);
+                pylons.push({ id: r * cols + c, position: [x, 0, z], scale: 0.8 + (1 - r / rows) * 0.4, opacity });
             }
         }
 
-        // --- 5. CREATE WIRES ---
-        const wireMaterial = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.2 });
-        const actualPulses: { mesh: THREE.Mesh; curve: THREE.CatmullRomCurve3; progress: number; speed: number }[] = [];
-
+        // Connect lines
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols - 1; c++) {
                 const pA = pylons[r * cols + c];
                 const pB = pylons[r * cols + (c + 1)];
 
-                for (let arm = 0; arm < 3; arm++) {
-                    const armYs = [162, 200, 237]; // Calculated from h=250 and armY ratios
-                    const armWs = [144, 128, 112]; // Calculated from w=80 and armW ratios
-                    const y = armYs[arm];
-                    const xOff = (armWs[arm] / 2);
+                [0.65, 0.8, 0.95].map((yStep, i) => {
+                    const hA = 250 * pA.scale;
+                    const hB = 250 * pB.scale;
+                    const yA = hA * yStep - 10;
+                    const yB = hB * yStep - 10;
+                    const wA = 80 * pA.scale * (1.8 - i * 0.2);
+                    const wB = 80 * pB.scale * (1.8 - i * 0.2);
 
                     [-1, 1].forEach(side => {
-                        const start = new THREE.Vector3(pA.position.x + xOff * side, y - 10, pA.position.z);
-                        const end = new THREE.Vector3(pB.position.x + xOff * side, y - 10, pB.position.z);
+                        const start = new THREE.Vector3(pA.position[0] + (wA / 2) * side, yA, pA.position[2]);
+                        const end = new THREE.Vector3(pB.position[0] + (wB / 2) * side, yB, pB.position[2]);
                         const mid = new THREE.Vector3().lerpVectors(start, end, 0.5);
                         mid.y -= 40;
-
-                        const curve = new THREE.CatmullRomCurve3([start, mid, end]);
-                        const points = curve.getPoints(25);
-                        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                        const line = new THREE.Line(geometry, wireMaterial);
-                        scene.add(line);
-                        wires.push(line);
+                        lines.push({
+                            start,
+                            end,
+                            curve: new THREE.QuadraticBezierCurve3(start, mid, end)
+                        });
                     });
-                }
+                });
             }
         }
 
-        sceneRef.current = { scene, camera, renderer, pylons, wires, pulses: actualPulses };
+        return { pylonData: pylons, lineData: lines };
+    }, []);
 
-        const handleResize = () => {
-            if (!containerRef.current || !sceneRef.current) return;
-            const width = containerRef.current.offsetWidth;
-            const height = containerRef.current.offsetHeight;
-            sceneRef.current.camera.aspect = width / height;
-            sceneRef.current.camera.updateProjectionMatrix();
-            sceneRef.current.renderer.setSize(width, height);
-        };
+    useFrame(() => {
+        // Spawn Pulses
+        if (Math.random() > 0.96 && pulses.length < 20) {
+            const line = lineData[Math.floor(Math.random() * lineData.length)];
+            setPulses(prev => [...prev, { id: nextId.current++, curve: line.curve, speed: 0.005 + Math.random() * 0.01 }]);
+        }
 
-        window.addEventListener('resize', handleResize);
-
-        // --- 6. ANIMATION LOOP ---
-        const pulseGeometry = new THREE.SphereGeometry(4, 8, 8);
-        const pulseMaterial = new THREE.MeshStandardMaterial({
-            color: 0x06b6d4,
-            emissive: 0x06b6d4,
-            emissiveIntensity: 5
-        });
-
-        const animate = () => {
-            if (!sceneRef.current) return;
-            const { scene, camera, renderer, pulses, wires } = sceneRef.current;
-
-            // Spawn random pulses
-            if (Math.random() > 0.94 && pulses.length < 25) {
-                const randomWireIdx = Math.floor(Math.random() * wires.length);
-                const line = wires[randomWireIdx];
-                const points = (line.geometry as THREE.BufferGeometry).attributes.position.array;
-
-                const pA = new THREE.Vector3(points[0], points[1], points[2]);
-                const pB = new THREE.Vector3(points[points.length - 3], points[points.length - 2], points[points.length - 1]);
-                const mid = new THREE.Vector3().lerpVectors(pA, pB, 0.5);
-                mid.y -= 40;
-
-                const curve = new THREE.CatmullRomCurve3([pA, mid, pB]);
-                const mesh = new THREE.Mesh(pulseGeometry, pulseMaterial.clone());
-                scene.add(mesh);
-
-                pulses.push({
-                    mesh,
-                    curve,
-                    progress: 0,
-                    speed: 0.004 + Math.random() * 0.008
-                });
-            }
-
-            // Update pulses
-            for (let i = pulses.length - 1; i >= 0; i--) {
-                const pulse = pulses[i];
-                pulse.progress += pulse.speed;
-
-                if (pulse.progress >= 1) {
-                    scene.remove(pulse.mesh);
-                    pulses.splice(i, 1);
-                } else {
-                    const pos = pulse.curve.getPoint(pulse.progress);
-                    pulse.mesh.position.copy(pos);
-                    (pulse.mesh.material as THREE.MeshStandardMaterial).emissiveIntensity = 3 + Math.random() * 5;
-                }
-            }
-
-            // Camera Parallax
-            if (mousePosition) {
-                const targetX = (mousePosition.x / window.innerWidth - 0.5) * 300;
-                const targetY = 400 - (mousePosition.y / window.innerHeight - 0.5) * 150;
-                camera.position.x += (targetX - camera.position.x) * 0.03;
-                camera.position.y += (targetY - camera.position.y) * 0.03;
-                camera.lookAt(0, 150, -600);
-            }
-
-            // Unused interactive variable check to satisfy lint (if needed)
-            if (interactive) {
-                // Future interactive logic here
-            }
-
-            renderer.render(scene, camera);
-            animationFrameRef.current = requestAnimationFrame(animate);
-        };
-
-        animate();
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-            if (sceneRef.current) {
-                const { renderer, scene } = sceneRef.current;
-                renderer.dispose();
-                scene.clear();
-                if (containerRef.current) containerRef.current.removeChild(renderer.domElement);
-            }
-        };
-    }, [mousePosition, interactive]);
+        // Camera Parallax
+        if (cameraRef.current && mousePosition && interactive) {
+            const targetX = (mousePosition.x / window.innerWidth - 0.5) * 300;
+            const targetY = 400 - (mousePosition.y / window.innerHeight - 0.5) * 150;
+            cameraRef.current.position.x += (targetX - cameraRef.current.position.x) * 0.05;
+            cameraRef.current.position.y += (targetY - cameraRef.current.position.y) * 0.05;
+            cameraRef.current.lookAt(0, 150, -600);
+        }
+    });
 
     return (
-        <div
-            ref={containerRef}
-            className="absolute inset-0 w-full h-full overflow-hidden"
-            style={{ zIndex: 0 }}
-        />
+        <>
+            <PerspectiveCamera ref={cameraRef} makeDefault position={[0, 300, 800]} fov={60} />
+            <ambientLight intensity={1.5} />
+            <directionalLight position={[200, 500, 200]} intensity={2.5} color="#3b82f6" />
+            <fog attach="fog" args={['#0a0f1c', 100, 3000]} />
+
+            {/* Pylons */}
+            {pylonData.map(p => (
+                <Pylon key={p.id} position={p.position} scale={p.scale} opacity={p.opacity} />
+            ))}
+
+            {/* Lines */}
+            {lineData.map((l, i) => (
+                <TransmissionLine key={i} start={l.start} end={l.end} />
+            ))}
+
+            {/* Active Pulses */}
+            {pulses.map(p => (
+                <Pulse key={p.id} curve={p.curve} speed={p.speed} onComplete={() => setPulses(current => current.filter(item => item.id !== p.id))} />
+            ))}
+        </>
+    );
+};
+
+export const NetworkVisualization: React.FC<NetworkVisualizationProps> = ({
+    interactive = false,
+    mousePosition = null
+}) => {
+    return (
+        <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none" style={{ background: '#0a0f1c' }}>
+            <Canvas
+                gl={{ antialias: true, alpha: true }}
+                dpr={[1, 2]}
+                camera={{ fov: 60 }}
+            >
+                <InfrastructureScene mousePosition={interactive ? mousePosition : null} interactive={interactive} />
+            </Canvas>
+        </div>
     );
 };
