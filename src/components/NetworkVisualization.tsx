@@ -4,19 +4,17 @@ import React, { useEffect, useRef } from 'react';
 interface Node {
     x: number;
     y: number;
-    vx: number;
-    vy: number;
     radius: number;
-    glowIntensity: number;
-    glowDirection: number;
+    baseGlow: number;
+    pulseGlow: number;
+    connections: number[];
 }
 
-interface Particle {
-    x: number;
-    y: number;
+interface Pulse {
+    fromIndex: number;
+    toIndex: number;
     progress: number;
-    fromNode: number;
-    toNode: number;
+    speed: number;
 }
 
 interface NetworkVisualizationProps {
@@ -30,7 +28,7 @@ export const NetworkVisualization: React.FC<NetworkVisualizationProps> = ({
 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const nodesRef = useRef<Node[]>([]);
-    const particlesRef = useRef<Particle[]>([]);
+    const pulsesRef = useRef<Pulse[]>([]);
     const animationFrameRef = useRef<number>();
 
     useEffect(() => {
@@ -40,141 +38,147 @@ export const NetworkVisualization: React.FC<NetworkVisualizationProps> = ({
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Set canvas size
         const resizeCanvas = () => {
             const dpr = window.devicePixelRatio || 1;
             canvas.width = canvas.offsetWidth * dpr;
             canvas.height = canvas.offsetHeight * dpr;
             ctx.scale(dpr, dpr);
+            initializeGrid();
         };
 
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-
-        // Initialize nodes
-        const nodeCount = window.innerWidth < 768 ? 12 : 18;
-        nodesRef.current = Array.from({ length: nodeCount }, () => ({
-            x: Math.random() * canvas.offsetWidth,
-            y: Math.random() * canvas.offsetHeight,
-            vx: (Math.random() - 0.5) * 0.3,
-            vy: (Math.random() - 0.5) * 0.3,
-            radius: Math.random() > 0.7 ? 6 : 3, // Some larger nodes
-            glowIntensity: Math.random(),
-            glowDirection: Math.random() > 0.5 ? 1 : -1,
-        }));
-
-        // Initialize particles
-        particlesRef.current = [];
-
-        // Animation loop
-        const animate = () => {
+        const initializeGrid = () => {
             const width = canvas.offsetWidth;
             const height = canvas.offsetHeight;
 
-            // Clear canvas
-            ctx.clearRect(0, 0, width, height);
+            // Define grid dimensions based on screen size
+            const cols = window.innerWidth < 768 ? 5 : 8;
+            const rows = window.innerWidth < 768 ? 4 : 6;
 
-            // Update nodes
-            nodesRef.current.forEach((node) => {
-                // Move nodes
-                node.x += node.vx;
-                node.y += node.vy;
+            const cellWidth = width / (cols + 1);
+            const cellHeight = height / (rows + 1);
 
-                // Bounce off edges
-                if (node.x < 0 || node.x > width) node.vx *= -1;
-                if (node.y < 0 || node.y > height) node.vy *= -1;
+            const newNodes: Node[] = [];
 
-                // Keep in bounds
-                node.x = Math.max(0, Math.min(width, node.x));
-                node.y = Math.max(0, Math.min(height, node.y));
-
-                // Update glow
-                node.glowIntensity += node.glowDirection * 0.01;
-                if (node.glowIntensity > 1 || node.glowIntensity < 0.3) {
-                    node.glowDirection *= -1;
+            // Initialize nodes in a structured grid with slight random offset
+            for (let r = 1; r <= rows; r++) {
+                for (let c = 1; c <= cols; c++) {
+                    newNodes.push({
+                        x: c * cellWidth + (Math.random() - 0.5) * cellWidth * 0.3,
+                        y: r * cellHeight + (Math.random() - 0.5) * cellHeight * 0.3,
+                        radius: Math.random() > 0.8 ? 5 : 3,
+                        baseGlow: 0.2 + Math.random() * 0.2,
+                        pulseGlow: 0,
+                        connections: []
+                    });
                 }
-            });
+            }
 
-            // Draw connections
-            nodesRef.current.forEach((node, i) => {
-                nodesRef.current.slice(i + 1).forEach((otherNode, j) => {
+            // Create connections between neighbors
+            newNodes.forEach((node, i) => {
+                newNodes.forEach((otherNode, j) => {
+                    if (i === j) return;
+
                     const dx = node.x - otherNode.x;
                     const dy = node.y - otherNode.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
 
-                    // Only connect close nodes
-                    if (distance < 200) {
-                        const opacity = (1 - distance / 200) * 0.3;
-
-                        // Gradient line
-                        const gradient = ctx.createLinearGradient(
-                            node.x,
-                            node.y,
-                            otherNode.x,
-                            otherNode.y
-                        );
-                        gradient.addColorStop(0, `rgba(6, 182, 212, ${opacity})`);
-                        gradient.addColorStop(0.5, `rgba(255, 255, 255, ${opacity * 0.5})`);
-                        gradient.addColorStop(1, `rgba(59, 130, 246, ${opacity})`);
-
-                        ctx.strokeStyle = gradient;
-                        ctx.lineWidth = 1;
-                        ctx.beginPath();
-                        ctx.moveTo(node.x, node.y);
-                        ctx.lineTo(otherNode.x, otherNode.y);
-                        ctx.stroke();
-
-                        // Occasionally spawn particles
-                        if (Math.random() > 0.995 && particlesRef.current.length < 30) {
-                            particlesRef.current.push({
-                                x: node.x,
-                                y: node.y,
-                                progress: 0,
-                                fromNode: i,
-                                toNode: i + j + 1,
-                            });
+                    // Connect nodes within a certain distance (grid neighbors)
+                    if (distance < cellWidth * 1.5) {
+                        if (!node.connections.includes(j)) {
+                            node.connections.push(j);
                         }
                     }
                 });
             });
 
-            // Update and draw particles
-            particlesRef.current = particlesRef.current.filter((particle) => {
-                const fromNode = nodesRef.current[particle.fromNode];
-                const toNode = nodesRef.current[particle.toNode];
+            nodesRef.current = newNodes;
+            pulsesRef.current = [];
+        };
 
-                if (!fromNode || !toNode) return false;
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
 
-                particle.progress += 0.02;
+        const animate = () => {
+            const width = canvas.offsetWidth;
+            const height = canvas.offsetHeight;
 
-                if (particle.progress >= 1) return false;
+            ctx.clearRect(0, 0, width, height);
 
-                particle.x = fromNode.x + (toNode.x - fromNode.x) * particle.progress;
-                particle.y = fromNode.y + (toNode.y - fromNode.y) * particle.progress;
+            // 1. Draw Static Connections (Cables)
+            ctx.lineWidth = 1;
+            nodesRef.current.forEach((node, i) => {
+                node.connections.forEach(targetIndex => {
+                    // Only draw each connection once
+                    if (targetIndex > i) {
+                        const target = nodesRef.current[targetIndex];
+                        const dx = node.x - target.x;
+                        const dy = node.y - target.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
 
-                // Draw particle
-                const gradient = ctx.createRadialGradient(
-                    particle.x,
-                    particle.y,
-                    0,
-                    particle.x,
-                    particle.y,
-                    4
-                );
-                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-                gradient.addColorStop(1, 'rgba(6, 182, 212, 0)');
+                        // Subtle cable look
+                        ctx.strokeStyle = `rgba(59, 130, 246, 0.15)`;
+                        ctx.beginPath();
+                        ctx.moveTo(node.x, node.y);
+                        ctx.lineTo(target.x, target.y);
+                        ctx.stroke();
+                    }
+                });
+            });
 
-                ctx.fillStyle = gradient;
+            // 2. Spawn and Update Pulses
+            if (Math.random() > 0.97 && pulsesRef.current.length < 25) {
+                const startIndex = Math.floor(Math.random() * nodesRef.current.length);
+                const node = nodesRef.current[startIndex];
+                if (node.connections.length > 0) {
+                    const targetIndex = node.connections[Math.floor(Math.random() * node.connections.length)];
+                    pulsesRef.current.push({
+                        fromIndex: startIndex,
+                        toIndex: targetIndex,
+                        progress: 0,
+                        speed: 0.005 + Math.random() * 0.015
+                    });
+                }
+            }
+
+            pulsesRef.current = pulsesRef.current.filter(pulse => {
+                pulse.progress += pulse.speed;
+
+                if (pulse.progress >= 1) {
+                    // Trigger surge on target node
+                    const targetNode = nodesRef.current[pulse.toIndex];
+                    if (targetNode) {
+                        targetNode.pulseGlow = 1;
+                    }
+                    return false;
+                }
+
+                const from = nodesRef.current[pulse.fromIndex];
+                const to = nodesRef.current[pulse.toIndex];
+
+                const px = from.x + (to.x - from.x) * pulse.progress;
+                const py = from.y + (to.y - from.y) * pulse.progress;
+
+                // Draw pulse
+                const pulseGradient = ctx.createRadialGradient(px, py, 0, px, py, 6);
+                pulseGradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+                pulseGradient.addColorStop(0.4, 'rgba(6, 182, 212, 0.8)');
+                pulseGradient.addColorStop(1, 'rgba(6, 182, 212, 0)');
+
+                ctx.fillStyle = pulseGradient;
                 ctx.beginPath();
-                ctx.arc(particle.x, particle.y, 4, 0, Math.PI * 2);
+                ctx.arc(px, py, 6, 0, Math.PI * 2);
                 ctx.fill();
 
                 return true;
             });
 
-            // Draw nodes
-            nodesRef.current.forEach((node) => {
-                let glowIntensity = node.glowIntensity;
+            // 3. Update and Draw Nodes
+            nodesRef.current.forEach(node => {
+                // Decay pulse glow
+                node.pulseGlow *= 0.95;
+                if (node.pulseGlow < 0.01) node.pulseGlow = 0;
+
+                let drawGlow = node.baseGlow + node.pulseGlow * 0.8;
 
                 // Interactive mode - react to mouse
                 if (interactive && mousePosition) {
@@ -182,43 +186,39 @@ export const NetworkVisualization: React.FC<NetworkVisualizationProps> = ({
                     const dy = node.y - mousePosition.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
 
-                    if (distance < 150) {
-                        glowIntensity = Math.min(1, glowIntensity + (1 - distance / 150) * 0.5);
+                    if (distance < 200) {
+                        drawGlow = Math.min(1, drawGlow + (1 - distance / 200) * 0.5);
+
+                        // Energize connections near mouse
+                        node.connections.forEach(targetIdx => {
+                            const target = nodesRef.current[targetIdx];
+                            const tdx = target.x - mousePosition.x;
+                            const tdy = target.y - mousePosition.y;
+                            const tDist = Math.sqrt(tdx * tdx + tdy * tdy);
+
+                            if (tDist < 200) {
+                                ctx.strokeStyle = `rgba(34, 211, 238, ${(1 - (distance + tDist) / 400) * 0.4})`;
+                                ctx.beginPath();
+                                ctx.moveTo(node.x, node.y);
+                                ctx.lineTo(target.x, target.y);
+                                ctx.stroke();
+                            }
+                        });
                     }
                 }
 
-                // Outer glow
-                const gradient = ctx.createRadialGradient(
-                    node.x,
-                    node.y,
-                    0,
-                    node.x,
-                    node.y,
-                    node.radius * 4
-                );
-                gradient.addColorStop(0, `rgba(6, 182, 212, ${glowIntensity * 0.6})`);
-                gradient.addColorStop(0.5, `rgba(59, 130, 246, ${glowIntensity * 0.3})`);
-                gradient.addColorStop(1, 'rgba(6, 182, 212, 0)');
+                // Draw node glow
+                const nodeGlow = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, node.radius * 3);
+                nodeGlow.addColorStop(0, `rgba(6, 182, 212, ${drawGlow})`);
+                nodeGlow.addColorStop(1, 'rgba(6, 182, 212, 0)');
 
-                ctx.fillStyle = gradient;
+                ctx.fillStyle = nodeGlow;
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, node.radius * 4, 0, Math.PI * 2);
+                ctx.arc(node.x, node.y, node.radius * 3, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Core node
-                const coreGradient = ctx.createRadialGradient(
-                    node.x,
-                    node.y,
-                    0,
-                    node.x,
-                    node.y,
-                    node.radius
-                );
-                coreGradient.addColorStop(0, `rgba(255, 255, 255, ${glowIntensity})`);
-                coreGradient.addColorStop(0.5, `rgba(6, 182, 212, ${glowIntensity * 0.8})`);
-                coreGradient.addColorStop(1, `rgba(59, 130, 246, ${glowIntensity * 0.6})`);
-
-                ctx.fillStyle = coreGradient;
+                // Draw node core
+                ctx.fillStyle = `rgba(255, 255, 255, ${0.7 + drawGlow * 0.3})`;
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
                 ctx.fill();
