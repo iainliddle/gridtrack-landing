@@ -1,32 +1,6 @@
 'use client';
 import React, { useEffect, useRef } from 'react';
-
-interface Pylon {
-    x: number;
-    y: number;
-    scale: number;
-    opacity: number;
-}
-
-interface Wire {
-    pylonA: number;
-    pylonB: number;
-    armIndex: number; // Which arm of the pylon the wire attaches to
-}
-
-interface Pulse {
-    wireIndex: number;
-    progress: number;
-    speed: number;
-}
-
-interface Spark {
-    x: number;
-    y: number;
-    life: number;
-    vx: number;
-    vy: number;
-}
+import * as THREE from 'three';
 
 interface NetworkVisualizationProps {
     interactive?: boolean;
@@ -37,280 +11,249 @@ export const NetworkVisualization: React.FC<NetworkVisualizationProps> = ({
     interactive = false,
     mousePosition = null
 }) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const pylonsRef = useRef<Pylon[]>([]);
-    const wiresRef = useRef<Wire[]>([]);
-    const pulsesRef = useRef<Pulse[]>([]);
-    const sparksRef = useRef<Spark[]>([]);
-    const animationFrameRef = useRef<number>();
+    const containerRef = useRef<HTMLDivElement>(null);
+    const sceneRef = useRef<{
+        scene: THREE.Scene;
+        camera: THREE.PerspectiveCamera;
+        renderer: THREE.WebGLRenderer;
+        pylons: THREE.Group[];
+        wires: THREE.Line[];
+        pulses: { mesh: THREE.Mesh; curve: THREE.CatmullRomCurve3; progress: number; speed: number }[];
+    } | null>(null);
+    const animationFrameRef = useRef<number>(null);
 
     useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!containerRef.current) return;
 
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        // --- 1. SETUP SCENE ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0f1c);
+        scene.fog = new THREE.FogExp2(0x0a0f1c, 0.001);
 
-        const resizeCanvas = () => {
-            const dpr = window.devicePixelRatio || 1;
-            canvas.width = canvas.offsetWidth * dpr;
-            canvas.height = canvas.offsetHeight * dpr;
-            ctx.scale(dpr, dpr);
-            initializeInfrastructure();
+        const camera = new THREE.PerspectiveCamera(
+            60,
+            containerRef.current.offsetWidth / containerRef.current.offsetHeight,
+            0.1,
+            5000
+        );
+        camera.position.set(0, 400, 1000);
+        camera.lookAt(0, 100, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(containerRef.current.offsetWidth, containerRef.current.offsetHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        containerRef.current.appendChild(renderer.domElement);
+
+        // --- 2. LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0x404040, 2);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0x3b82f6, 3);
+        directionalLight.position.set(200, 800, 200);
+        scene.add(directionalLight);
+
+        // --- 3. PYLON MODEL HELPER ---
+        const createPylon = () => {
+            const group = new THREE.Group();
+            const material = new THREE.MeshPhongMaterial({ color: 0x1e293b, shininess: 30 });
+
+            const h = 250;
+            const w = 80;
+
+            // Legs
+            const legGeom = new THREE.CylinderGeometry(1, 6, h, 4);
+            const legs = [
+                { x: -w / 2, z: -w / 2 },
+                { x: w / 2, z: -w / 2 },
+                { x: w / 2, z: w / 2 },
+                { x: -w / 2, z: w / 2 }
+            ];
+
+            legs.forEach(pos => {
+                const leg = new THREE.Mesh(legGeom, material);
+                leg.position.set(pos.x * 0.4, h / 2, pos.z * 0.4);
+                leg.rotation.z = pos.x > 0 ? 0.12 : -0.12;
+                leg.rotation.x = pos.z > 0 ? -0.12 : 0.12;
+                group.add(leg);
+            });
+
+            // Arms
+            const armY = [h * 0.65, h * 0.8, h * 0.95];
+            const armW = [w * 1.8, w * 1.6, w * 1.4];
+
+            armY.forEach((y, i) => {
+                const currentArmW = armW[i];
+                const arm = new THREE.Mesh(new THREE.BoxGeometry(currentArmW, 4, 4), material);
+                arm.position.y = y;
+                group.add(arm);
+
+                // Insulators
+                const insGeom = new THREE.CylinderGeometry(2, 2, 12, 8);
+                const insMat = new THREE.MeshPhongMaterial({ color: 0x475569 });
+
+                [-1, 1].forEach(side => {
+                    const ins = new THREE.Mesh(insGeom, insMat);
+                    ins.position.set((currentArmW / 2) * side, y - 6, 0);
+                    group.add(ins);
+                });
+            });
+
+            return group;
         };
 
-        const initializeInfrastructure = () => {
-            const width = canvas.offsetWidth;
-            const height = canvas.offsetHeight;
+        // --- 4. POPULATE GRID ---
+        const pylons: THREE.Group[] = [];
+        const wires: THREE.Line[] = [];
+        const pulses: { mesh: THREE.Mesh; curve: THREE.CatmullRomCurve3; progress: number; speed: number }[];
 
-            const newPylons: Pylon[] = [];
-            const newWires: Wire[] = [];
+        const rows = 4;
+        const cols = 5;
+        const spacingX = 500;
+        const spacingZ = 800;
 
-            // We'll create a few rows of pylons to create depth
-            const rows = 3;
-            const pylonsPerRow = 5;
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const pylon = createPylon();
+                const x = (c - (cols - 1) / 2) * spacingX + (Math.random() - 0.5) * 150;
+                const z = -r * spacingZ + (Math.random() - 0.5) * 150;
+                pylon.position.set(x, 0, z);
+                scene.add(pylon);
+                pylons.push(pylon);
+            }
+        }
 
-            for (let r = 0; r < rows; r++) {
-                const z = 1 - (r / rows); // Depth factor
-                const scale = 0.4 + z * 0.6;
-                const opacity = 0.2 + z * 0.5;
-                const yPos = height * 0.4 + (r * height * 0.15);
+        // --- 5. CREATE WIRES ---
+        const wireMaterial = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.2 });
+        const actualPulses: { mesh: THREE.Mesh; curve: THREE.CatmullRomCurve3; progress: number; speed: number }[] = [];
 
-                const rowPylons: number[] = [];
-                for (let i = 0; i < pylonsPerRow; i++) {
-                    const xPos = (width / (pylonsPerRow - 1)) * i;
-                    // Add slight random offset to make it look less robotic
-                    const x = xPos + (Math.random() - 0.5) * 50 * z;
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols - 1; c++) {
+                const pA = pylons[r * cols + c];
+                const pB = pylons[r * cols + (c + 1)];
 
-                    rowPylons.push(newPylons.length);
-                    newPylons.push({
-                        x,
-                        y: yPos,
-                        scale,
-                        opacity
+                for (let arm = 0; arm < 3; arm++) {
+                    const armYs = [162, 200, 237]; // Calculated from h=250 and armY ratios
+                    const armWs = [144, 128, 112]; // Calculated from w=80 and armW ratios
+                    const y = armYs[arm];
+                    const xOff = (armWs[arm] / 2);
+
+                    [-1, 1].forEach(side => {
+                        const start = new THREE.Vector3(pA.position.x + xOff * side, y - 10, pA.position.z);
+                        const end = new THREE.Vector3(pB.position.x + xOff * side, y - 10, pB.position.z);
+                        const mid = new THREE.Vector3().lerpVectors(start, end, 0.5);
+                        mid.y -= 40;
+
+                        const curve = new THREE.CatmullRomCurve3([start, mid, end]);
+                        const points = curve.getPoints(25);
+                        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                        const line = new THREE.Line(geometry, wireMaterial);
+                        scene.add(line);
+                        wires.push(line);
                     });
                 }
-
-                // Connect pylons in this row
-                for (let i = 0; i < rowPylons.length - 1; i++) {
-                    // Each pylon has 3 arms (left, right, top - or just 3 levels)
-                    for (let arm = 0; arm < 3; arm++) {
-                        newWires.push({
-                            pylonA: rowPylons[i],
-                            pylonB: rowPylons[i + 1],
-                            armIndex: arm
-                        });
-                    }
-                }
             }
+        }
 
-            pylonsRef.current = newPylons;
-            wiresRef.current = newWires;
-            pulsesRef.current = [];
-            sparksRef.current = [];
+        sceneRef.current = { scene, camera, renderer, pylons, wires, pulses: actualPulses };
+
+        const handleResize = () => {
+            if (!containerRef.current || !sceneRef.current) return;
+            const width = containerRef.current.offsetWidth;
+            const height = containerRef.current.offsetHeight;
+            sceneRef.current.camera.aspect = width / height;
+            sceneRef.current.camera.updateProjectionMatrix();
+            sceneRef.current.renderer.setSize(width, height);
         };
 
-        const getPylonConnectionPoint = (pylon: Pylon, armIndex: number) => {
-            const h = 120 * pylon.scale;
-            const w = 40 * pylon.scale;
-            // Arm offsets
-            const armY = [h * 0.3, h * 0.55, h * 0.8];
-            const armW = [w * 1.2, w * 1.5, w * 1.8];
+        window.addEventListener('resize', handleResize);
 
-            // X is slightly left or right depending on row? Let's just alternate or use armIndex
-            const side = armIndex % 2 === 0 ? 1 : -1;
-            return {
-                x: pylon.x + (armW[armIndex] * 0.5 * side),
-                y: pylon.y - h + armY[armIndex]
-            };
-        };
-
-        const drawPylon = (ctx: CanvasRenderingContext2D, pylon: Pylon) => {
-            const h = 120 * pylon.scale;
-            const w = 40 * pylon.scale;
-
-            ctx.strokeStyle = `rgba(100, 116, 139, ${pylon.opacity * 0.5})`;
-            ctx.lineWidth = 1.5 * pylon.scale;
-
-            ctx.beginPath();
-            // Main vertical legs
-            ctx.moveTo(pylon.x - w / 2, pylon.y);
-            ctx.lineTo(pylon.x - w / 6, pylon.y - h);
-            ctx.lineTo(pylon.x + w / 6, pylon.y - h);
-            ctx.lineTo(pylon.x + w / 2, pylon.y);
-
-            // Cross bars
-            const armY = [h * 0.3, h * 0.55, h * 0.8];
-            const armW = [w * 1.2, w * 1.5, w * 1.8];
-
-            armY.forEach((yOff, i) => {
-                const y = pylon.y - h + yOff;
-                const aw = armW[i];
-                ctx.moveTo(pylon.x - aw / 2, y);
-                ctx.lineTo(pylon.x + aw / 2, y);
-            });
-
-            // Lattice work
-            ctx.moveTo(pylon.x - w / 2, pylon.y - h * 0.2);
-            ctx.lineTo(pylon.x + w / 2, pylon.y - h * 0.4);
-            ctx.moveTo(pylon.x + w / 2, pylon.y - h * 0.2);
-            ctx.lineTo(pylon.x - w / 2, pylon.y - h * 0.4);
-
-            ctx.stroke();
-        };
-
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+        // --- 6. ANIMATION LOOP ---
+        const pulseGeometry = new THREE.SphereGeometry(4, 8, 8);
+        const pulseMaterial = new THREE.MeshStandardMaterial({
+            color: 0x06b6d4,
+            emissive: 0x06b6d4,
+            emissiveIntensity: 5
+        });
 
         const animate = () => {
-            const width = canvas.offsetWidth;
-            const height = canvas.offsetHeight;
+            if (!sceneRef.current) return;
+            const { scene, camera, renderer, pulses, wires } = sceneRef.current;
 
-            ctx.clearRect(0, 0, width, height);
+            // Spawn random pulses
+            if (Math.random() > 0.94 && pulses.length < 25) {
+                const randomWireIdx = Math.floor(Math.random() * wires.length);
+                const line = wires[randomWireIdx];
+                const points = (line.geometry as THREE.BufferGeometry).attributes.position.array;
 
-            // 1. Draw Pylons
-            pylonsRef.current.forEach(pylon => drawPylon(ctx, pylon));
+                const pA = new THREE.Vector3(points[0], points[1], points[2]);
+                const pB = new THREE.Vector3(points[points.length - 3], points[points.length - 2], points[points.length - 1]);
+                const mid = new THREE.Vector3().lerpVectors(pA, pB, 0.5);
+                mid.y -= 40;
 
-            // 2. Draw Wires (Transmission Lines)
-            ctx.lineWidth = 0.5;
-            wiresRef.current.forEach(wire => {
-                const pA = pylonsRef.current[wire.pylonA];
-                const pB = pylonsRef.current[wire.pylonB];
-                const ptA = getPylonConnectionPoint(pA, wire.armIndex);
-                const ptB = getPylonConnectionPoint(pB, wire.armIndex);
+                const curve = new THREE.CatmullRomCurve3([pA, mid, pB]);
+                const mesh = new THREE.Mesh(pulseGeometry, pulseMaterial.clone());
+                scene.add(mesh);
 
-                ctx.strokeStyle = `rgba(59, 130, 246, ${Math.min(pA.opacity, pB.opacity) * 0.3})`;
-                ctx.beginPath();
-                ctx.moveTo(ptA.x, ptA.y);
-                // Subtle sag? (catenary curve approximation)
-                const midX = (ptA.x + ptB.x) / 2;
-                const midY = (ptA.y + ptB.y) / 2 + 10 * pA.scale;
-                ctx.quadraticCurveTo(midX, midY, ptB.x, ptB.y);
-                ctx.stroke();
-            });
-
-            // 3. Spawn and Update Pulses
-            if (Math.random() > 0.95 && pulsesRef.current.length < 20) {
-                pulsesRef.current.push({
-                    wireIndex: Math.floor(Math.random() * wiresRef.current.length),
+                pulses.push({
+                    mesh,
+                    curve,
                     progress: 0,
-                    speed: 0.005 + Math.random() * 0.01
+                    speed: 0.004 + Math.random() * 0.008
                 });
             }
 
-            pulsesRef.current = pulsesRef.current.filter(pulse => {
+            // Update pulses
+            for (let i = pulses.length - 1; i >= 0; i--) {
+                const pulse = pulses[i];
                 pulse.progress += pulse.speed;
+
                 if (pulse.progress >= 1) {
-                    // Trigger spark at destination
-                    const wire = wiresRef.current[pulse.wireIndex];
-                    const pB = pylonsRef.current[wire.pylonB];
-                    const ptB = getPylonConnectionPoint(pB, wire.armIndex);
-
-                    for (let i = 0; i < 5; i++) {
-                        sparksRef.current.push({
-                            x: ptB.x,
-                            y: ptB.y,
-                            life: 1,
-                            vx: (Math.random() - 0.5) * 4,
-                            vy: (Math.random() - 0.5) * 4
-                        });
-                    }
-                    return false;
+                    scene.remove(pulse.mesh);
+                    pulses.splice(i, 1);
+                } else {
+                    const pos = pulse.curve.getPoint(pulse.progress);
+                    pulse.mesh.position.copy(pos);
+                    (pulse.mesh.material as THREE.MeshStandardMaterial).emissiveIntensity = 3 + Math.random() * 5;
                 }
-
-                const wire = wiresRef.current[pulse.wireIndex];
-                const pA = pylonsRef.current[wire.pylonA];
-                const pB = pylonsRef.current[wire.pylonB];
-                const ptA = getPylonConnectionPoint(pA, wire.armIndex);
-                const ptB = getPylonConnectionPoint(pB, wire.armIndex);
-
-                const midX = (ptA.x + ptB.x) / 2;
-                const midY = (ptA.y + ptB.y) / 2 + 10 * pA.scale;
-
-                // Position along quadratic curve
-                const t = pulse.progress;
-                const px = (1 - t) * (1 - t) * ptA.x + 2 * (1 - t) * t * midX + t * t * ptB.x;
-                const py = (1 - t) * (1 - t) * ptA.y + 2 * (1 - t) * t * midY + t * t * ptB.y;
-
-                // Draw pulse glow
-                const rad = 6 * pA.scale;
-                const glow = ctx.createRadialGradient(px, py, 0, px, py, rad * 3);
-                glow.addColorStop(0, 'rgba(255, 255, 255, 1)');
-                glow.addColorStop(0.2, 'rgba(6, 182, 212, 0.8)');
-                glow.addColorStop(1, 'rgba(6, 182, 212, 0)');
-
-                ctx.fillStyle = glow;
-                ctx.beginPath();
-                ctx.arc(px, py, rad * 3, 0, Math.PI * 2);
-                ctx.fill();
-
-                return true;
-            });
-
-            // 4. Update and Draw Sparks
-            sparksRef.current = sparksRef.current.filter(spark => {
-                spark.x += spark.vx;
-                spark.y += spark.vy;
-                spark.life -= 0.05;
-                if (spark.life <= 0) return false;
-
-                ctx.strokeStyle = `rgba(255, 255, 255, ${spark.life})`;
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(spark.x, spark.y);
-                ctx.lineTo(spark.x - spark.vx * 2, spark.y - spark.vy * 2);
-                ctx.stroke();
-
-                return true;
-            });
-
-            // 5. Interaction
-            if (interactive && mousePosition) {
-                pylonsRef.current.forEach(pylon => {
-                    const dx = pylon.x - mousePosition.x;
-                    const dy = (pylon.y - 60 * pylon.scale) - mousePosition.y; // Centered on pylon
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-
-                    if (dist < 150) {
-                        const intensity = (1 - dist / 150) * 0.5;
-                        ctx.strokeStyle = `rgba(34, 211, 238, ${intensity})`;
-                        ctx.lineWidth = 2 * pylon.scale;
-                        drawPylon(ctx, pylon);
-
-                        // Local crackles for interaction
-                        if (Math.random() > 0.8) {
-                            const armIdx = Math.floor(Math.random() * 3);
-                            const pt = getPylonConnectionPoint(pylon, armIdx);
-                            sparksRef.current.push({
-                                x: pt.x,
-                                y: pt.y,
-                                life: 0.5,
-                                vx: (Math.random() - 0.5) * 6,
-                                vy: (Math.random() - 0.5) * 6
-                            });
-                        }
-                    }
-                });
             }
 
+            // Camera Parallax
+            if (mousePosition) {
+                const targetX = (mousePosition.x / window.innerWidth - 0.5) * 300;
+                const targetY = 400 - (mousePosition.y / window.innerHeight - 0.5) * 150;
+                camera.position.x += (targetX - camera.position.x) * 0.03;
+                camera.position.y += (targetY - camera.position.y) * 0.03;
+                camera.lookAt(0, 150, -600);
+            }
+
+            // Unused interactive variable check to satisfy lint (if needed)
+            if (interactive) {
+                // Future interactive logic here
+            }
+
+            renderer.render(scene, camera);
             animationFrameRef.current = requestAnimationFrame(animate);
         };
 
         animate();
 
         return () => {
-            window.removeEventListener('resize', resizeCanvas);
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
+            window.removeEventListener('resize', handleResize);
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+            if (sceneRef.current) {
+                const { renderer, scene } = sceneRef.current;
+                renderer.dispose();
+                scene.clear();
+                if (containerRef.current) containerRef.current.removeChild(renderer.domElement);
             }
         };
-    }, [interactive, mousePosition]);
+    }, [mousePosition, interactive]);
 
     return (
-        <canvas
-            ref={canvasRef}
-            className="absolute inset-0 w-full h-full"
-            style={{ width: '100%', height: '100%' }}
+        <div
+            ref={containerRef}
+            className="absolute inset-0 w-full h-full overflow-hidden"
+            style={{ zIndex: 0 }}
         />
     );
 };
