@@ -43,25 +43,30 @@ export const PainPoints: React.FC = () => {
                     {painPoints.map((point, index) => (
                         <motion.div
                             key={index}
-                            className="p-8 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-200 hover:-translate-y-1 transition-all duration-300 ease-out group"
+                            className="relative p-8 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-2xl hover:border-red-200 hover:-translate-y-2 transition-all duration-300 ease-out group"
                             initial={{ opacity: 0, y: 40 }}
                             animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
                             transition={{ duration: 0.6, delay: index * 0.15 }}
-                            whileHover={{ y: -8, scale: 1.02 }}
+                            whileHover={{ y: -12, scale: 1.02 }}
                         >
-                            {/* Icon with gradient background */}
-                            <motion.div
-                                className={`w-14 h-14 bg-gradient-to-br ${point.gradient} rounded-xl flex items-center justify-center text-white text-2xl mb-6 transition-transform duration-300`}
-                                whileHover={{ scale: 1.2, rotate: 5 }}
-                            >
-                                {point.emoji}
-                            </motion.div>
-                            <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                                {point.title}
-                            </h3>
-                            <p className="text-gray-600">
-                                {point.description}
-                            </p>
+                            {/* Red/orange glow behind card */}
+                            <div className={`absolute -inset-4 bg-gradient-to-br ${point.gradient} opacity-0 group-hover:opacity-20 rounded-3xl blur-2xl transition-opacity duration-300`} />
+
+                            <div className="relative z-10">
+                                {/* Icon with gradient background */}
+                                <motion.div
+                                    className={`w-14 h-14 bg-gradient-to-br ${point.gradient} rounded-xl flex items-center justify-center text-white text-2xl mb-6 transition-transform duration-300`}
+                                    whileHover={{ scale: 1.2, rotate: 5 }}
+                                >
+                                    {point.emoji}
+                                </motion.div>
+                                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                                    {point.title}
+                                </h3>
+                                <p className="text-gray-600">
+                                    {point.description}
+                                </p>
+                            </div>
                         </motion.div>
                     ))}
                 </div>

@@ -6,59 +6,60 @@ import { useRef } from 'react';
 export const FeaturesSection: React.FC = () => {
     const features = [
         {
-            title: 'See Your Entire Portfolio at a Glance',
-            description: 'Interactive Gantt charts show every project phase from design through energisation. Drag and drop to reschedule. Spot delays before they happen.',
-            screenshot: '/assets/screenshots/timeline.png',
-            url: 'gridtrack.co.uk/timeline',
-            points: [
-                'Visual phase tracking',
-                'Drag and drop scheduling',
-                'Milestone indicators'
-            ],
-            imagePosition: 'left' as const
+            title: 'Visual Phase Tracking',
+            description: 'Interactive Gantt charts show every project phase from design through energisation. Spot delays before they happen.',
+            icon: (
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+            ),
+            color: 'from-blue-500 to-cyan-500'
         },
         {
-            title: 'Know Exactly Where Every Project Stands',
-            description: 'Real-time status cards, priority flags, and stage tracking. Filter by DNO, IDNO, connection type, or portfolio.',
-            screenshot: '/assets/screenshots/dashboard.png',
-            url: 'gridtrack.co.uk/dashboard',
-            points: [
-                'Real-time status overview',
-                'Advanced filtering',
-                'Priority management'
-            ],
-            imagePosition: 'right' as const
+            title: 'Real-time Status Overview',
+            description: 'Priority flags and stage tracking for all projects. Filter by DNO, IDNO, connection type, or portfolio.',
+            icon: (
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+            ),
+            color: 'from-indigo-500 to-purple-500'
         },
         {
-            title: 'Group Projects, Track Progress',
-            description: 'Manage multi-site rollouts for clients like Tesco, Co-Op, or Gridserve. See portfolio-level progress at a glance.',
-            screenshot: '/assets/screenshots/portfolios.png',
-            url: 'gridtrack.co.uk/portfolios',
-            points: [
-                'Portfolio organisation',
-                'Client-level reporting',
-                'Progress tracking'
-            ],
-            imagePosition: 'left' as const
+            title: 'Multi-site Rollouts',
+            description: 'Manage complex portfolios for major clients. See client-level progress and deadlines at a glance.',
+            icon: (
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+            ),
+            color: 'from-cyan-500 to-teal-500'
         }
     ];
 
     return (
-        <section id="features" className="py-20 bg-gray-50">
+        <section id="features" className="py-32 bg-gray-50">
             <div className="max-w-7xl mx-auto px-6">
-                <motion.h2
-                    className="text-3xl md:text-4xl font-bold text-center text-gray-900 mb-16"
+                <motion.div
+                    className="text-center max-w-3xl mx-auto mb-20"
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: "-100px" }}
+                    viewport={{ once: true }}
                     transition={{ duration: 0.6 }}
                 >
-                    Everything You Need to Deliver On Time
-                </motion.h2>
+                    <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-6">
+                        Built for Infrastructure Teams
+                    </h2>
+                    <p className="text-xl text-gray-600">
+                        Everything you need to move connection projects faster, with zero spreadsheets and zero missed deadlines.
+                    </p>
+                </motion.div>
 
-                {features.map((feature, index) => (
-                    <FeatureCard key={index} feature={feature} index={index} />
-                ))}
+                <div className="grid md:grid-cols-3 gap-8">
+                    {features.map((feature, index) => (
+                        <FeatureCard key={index} feature={feature} index={index} />
+                    ))}
+                </div>
             </div>
         </section>
     );
@@ -71,78 +72,35 @@ const FeatureCard: React.FC<{ feature: any; index: number }> = ({ feature, index
     return (
         <motion.div
             ref={ref}
-            className={`flex flex-col ${feature.imagePosition === 'right' ? 'lg:flex-row-reverse' : 'lg:flex-row'} items-center gap-12 ${index < 2 ? 'mb-20' : ''}`}
-            initial={{ opacity: 0, y: 60 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 60 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
+            className="group relative p-8 bg-white rounded-3xl border border-gray-100 shadow-sm transition-all duration-300 overflow-hidden"
+            initial={{ opacity: 0, y: 40 }}
+            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
+            transition={{ duration: 0.6, delay: index * 0.1 }}
+            whileHover={{ y: -10, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.08)' }}
         >
-            <motion.div
-                className="flex-1 relative"
-                initial={{ opacity: 0, x: feature.imagePosition === 'left' ? -40 : 40 }}
-                animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: feature.imagePosition === 'left' ? -40 : 40 }}
-                transition={{ duration: 0.7, delay: 0.4 }}
-            >
-                {/* Background glow */}
-                <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-2xl blur-xl" />
+            {/* Gradient Border on Hover */}
+            <div className="absolute inset-0 p-[2px] rounded-3xl bg-gradient-to-br from-blue-500 via-cyan-500 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
+            <div className="absolute inset-[2px] rounded-[22px] bg-white -z-10" />
 
-                {/* Browser mockup with enhanced styling */}
-                <motion.div
-                    className="relative bg-gray-900 rounded-xl shadow-xl shadow-gray-200/50 overflow-hidden ring-1 ring-gray-100/50 transition-all duration-300"
-                    whileHover={{
-                        scale: 1.02,
-                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-                    }}
-                >
-                    {/* Browser dots */}
-                    <div className="flex items-center gap-2 px-4 py-3 bg-gray-800 border-b border-gray-700">
-                        <div className="flex gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
-                            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-                        </div>
-                        <div className="flex-1 mx-4">
-                            <div className="bg-gray-700 rounded px-3 py-1 text-xs text-gray-400 max-w-xs">
-                                {feature.url}
-                            </div>
-                        </div>
-                    </div>
-                    {/* Screenshot */}
-                    <img
-                        src={feature.screenshot}
-                        alt={feature.title}
-                        className="w-full h-auto"
-                    />
-                </motion.div>
-            </motion.div>
-            <motion.div
-                className={`flex-1 ${feature.imagePosition === 'right' ? 'lg:pr-8' : 'lg:pl-8'}`}
-                initial={{ opacity: 0, x: feature.imagePosition === 'left' ? 40 : -40 }}
-                animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: feature.imagePosition === 'left' ? 40 : -40 }}
-                transition={{ duration: 0.7, delay: 0.5 }}
-            >
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                    {feature.title}
-                </h3>
-                <p className="text-lg text-gray-600 mb-6">
-                    {feature.description}
-                </p>
-                <ul className="space-y-3">
-                    {feature.points.map((point: string, pointIndex: number) => (
-                        <motion.li
-                            key={pointIndex}
-                            className="flex items-center gap-3 text-gray-600"
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
-                            transition={{ duration: 0.5, delay: 0.6 + (pointIndex * 0.1) }}
-                        >
-                            <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                            {point}
-                        </motion.li>
-                    ))}
-                </ul>
-            </motion.div>
+            {/* Icon */}
+            <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.color} flex items-center justify-center text-white mb-8 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
+                {feature.icon}
+            </div>
+
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                {feature.title}
+            </h3>
+            <p className="text-gray-600 text-lg leading-relaxed">
+                {feature.description}
+            </p>
+
+            {/* Arrow indicator that appears on hover */}
+            <div className="mt-8 flex items-center text-blue-600 font-semibold opacity-0 group-hover:opacity-100 transform translate-x-[-10px] group-hover:translate-x-0 transition-all duration-300">
+                Learn more
+                <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+            </div>
         </motion.div>
     );
 };
