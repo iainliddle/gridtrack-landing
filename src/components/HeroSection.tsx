@@ -32,7 +32,7 @@ export const HeroSection: React.FC = () => {
                         Get Free Access
                     </a>
                     <a
-                        href="mailto:iain@lumarr.co.uk?subject=GridTrack Pro Demo Request"
+                        href="https://calendly.com/iainliddle-gridtrack/gridtrack-pro-demo"
                         className="px-8 py-4 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-xl border border-gray-200 transition-colors"
                     >
                         Book a Demo
